@@ -73,7 +73,34 @@ def convert_to_libfm( infile, outfile ):
             # movie id
             out.write(" "+str(offset+int(movie))+":1")
             offset += len(movie_to_genre_vector)
-            
+            # timespamp
+            if args.timestamp:
+                out.write(" "+str(offset)+":"+str(time))
+                offset += 1
+            # genre
+            if args.genre:
+                for i,val in enumerate(movie_to_genre_vector[int(movie)]):
+                    if val == 1:
+                        out.write(" "+str(offset+i)+":1")
+                offset += len(movie_to_genre_vector[int(movie)])
+            # age
+            if args.age:
+                age, _, _ = id_to_userinfo[int(id)]
+                out.write(" "+str(offset)+":"+str(age))
+                offset += 1
+            # sex
+            if args.sex:
+                _, is_female, _ = id_to_userinfo[int(id)]
+                if is_female:
+                    out.write(" "+str(offset+1)+":1 ")
+                else:
+                    out.write(" "+str(offset)+":1 ")
+                offset += 2
+            # occupation
+            if args.job:
+                _, _, num_occupation = id_to_userinfo[int(id)]
+                out.write(" "+str(offset+num_occupation)+":1")
+                offset += len(occupation_to_number)
             out.write("\n")
 
 # create libfm dataset
