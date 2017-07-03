@@ -1,5 +1,6 @@
 import os
 import argparse
+import random
 import numpy as np
 
 # argparse configurations
@@ -16,6 +17,7 @@ parser.add_argument("-s", "--sex", action="store_true")
 parser.add_argument("-j", "--job", action="store_true")
 parser.add_argument("--other", action="store_true")
 parser.add_argument("--last", action="store_true")
+parser.add_argument("--unshuffled", action="store_true")
 args = parser.parse_args()
 
 # not implemented
@@ -61,7 +63,14 @@ for line in open(userfile,"r"):
 
 def convert_to_libfm( infile, outfile ):
     with open(outfile,"w") as out:
+        lines = []
         for line in open(infile):
+            lines += [line]
+        # shuffle
+        if not args.unshuffled:
+            random.shuffle(lines)
+        # generate
+        for line in lines:
             offset = 0
             line = line.rstrip("\n").split("\t")
             id, movie, rate, time = line
