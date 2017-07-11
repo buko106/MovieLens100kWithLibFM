@@ -4,7 +4,7 @@ import random
 import numpy as np
 
 # argparse configurations
-desc="Script for generating train/test dataset from MovieLens100k(https://grouplens.org/datasets/movielens/)"
+desc="Script for generating train/test dataset of MovieLens100k(https://grouplens.org/datasets/movielens/) for libFM(http://libfm.org/) and libffm-regression(https://www.csie.ntu.edu.tw/~cjlin/libffm/)"
 parser = argparse.ArgumentParser(description=desc)
 parser.add_argument("--prefix-train", type = str, default="train_", help="default='train_'")
 parser.add_argument("--prefix-test" , type = str, default="test_" , help="default='test_'")
