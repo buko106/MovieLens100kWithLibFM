@@ -16,8 +16,9 @@ parser.add_argument("-a", "--age", action="store_true")
 parser.add_argument("-s", "--sex", action="store_true")
 parser.add_argument("-j", "--job", action="store_true")
 parser.add_argument("--other", action="store_true")
-parser.add_argument("--last", action="store_true")
+# parser.add_argument("--last", action="store_true")
 parser.add_argument("--unshuffled", action="store_true")
+parser.add_argument("-f","--field-aware", action="store_true")
 args = parser.parse_args()
 
 # not implemented
@@ -25,9 +26,9 @@ if args.other :
     print("[ERROR] --other is not implemented")
     exit(1)
     
-if args.last :
-    print("[ERROR] --last is not implemented")
-    exit(1)
+# if args.last :
+#     print("[ERROR] --last is not implemented")
+#     exit(1)
 
 # read args
 output  = args.output
@@ -50,18 +51,24 @@ ext_test  = ".test"
 movie_to_genre_vector = {}
 for line in open(itemfile,"r"):
     line = line.rstrip("\n").split("|")
-    movie = int(line[0])
+    movie = line[0]
     movie_to_genre_vector[movie] = np.array(line[5:],dtype=int)
 # read occupation file
 occupation_to_number = { occ:i for (i,occ) in enumerate(open(occupationfile,"r").read().split()) }
 # read user file
-id_to_userinfo = {} # ( age, is_female, occupation_number )
+id_to_userinfo = {} # ( age, gender, occupation_number )
 for line in open(userfile,"r"):
     line = line.rstrip("\n").split("|")
-    id = int(line[0])
-    id_to_userinfo[id] = (int(line[1]),line[2]=="F",occupation_to_number[line[3]])
+    id = line[0]
+    id_to_userinfo[id] = (line[1],line[2],occupation_to_number[line[3]])
 
-def convert_to_libfm( infile, outfile ):
+def get_field( field ):
+    if args.field_aware:
+        return str(field)+":"
+    else:
+        return ""
+
+def emit_libfm( infile, outfile, train_db ):
     with open(outfile,"w") as out:
         lines = []
         for line in open(infile):
@@ -72,47 +79,77 @@ def convert_to_libfm( infile, outfile ):
         # generate
         for line in lines:
             offset = 0
+            field = 0
             line = line.rstrip("\n").split("\t")
             id, movie, rate, time = line
             # rate
             out.write(rate)
             # user id
-            out.write(" "+str(offset+int(id))+":1")
-            offset += len(id_to_userinfo)
+            if True:
+                out.write(" "+get_field(field)+str(offset+int(id))+":1")
+                offset += len(id_to_userinfo)
+                field += 1
             # movie id
-            out.write(" "+str(offset+int(movie))+":1")
-            offset += len(movie_to_genre_vector)
+            if True:
+                out.write(" "+get_field(field)+str(offset+int(movie))+":1")
+                offset += len(movie_to_genre_vector)
+                field += 1
             # timespamp
             if args.timestamp:
-                out.write(" "+str(offset)+":"+str(time))
+                out.write(" "+get_field(field)+str(offset)+":"+time)
                 offset += 1
+                field += 1
             # genre
             if args.genre:
-                for i,val in enumerate(movie_to_genre_vector[int(movie)]):
+                for i,val in enumerate(movie_to_genre_vector[movie]):
                     if val == 1:
-                        out.write(" "+str(offset+i)+":1")
-                offset += len(movie_to_genre_vector[int(movie)])
+                        out.write(" "+get_field(field)+str(offset+i)+":1")
+                offset += len(movie_to_genre_vector[movie])
+                field += 1
             # age
             if args.age:
-                age, _, _ = id_to_userinfo[int(id)]
-                out.write(" "+str(offset)+":"+str(age))
+                age, _, _ = id_to_userinfo[id]
+                out.write(" "+get_field(field)+str(offset)+":"+age)
                 offset += 1
+                field += 1
             # sex
             if args.sex:
-                _, is_female, _ = id_to_userinfo[int(id)]
-                if is_female:
-                    out.write(" "+str(offset+1)+":1 ")
-                else:
-                    out.write(" "+str(offset)+":1 ")
+                _, gender, _ = id_to_userinfo[id]
+                if   gender == "M":
+                    out.write(" "+get_field(field)+str(offset)+":1 ")
+                elif gender == "F":
+                    out.write(" "+get_field(field)+str(offset+1)+":1 ")
                 offset += 2
+                field += 1
             # occupation
             if args.job:
-                _, _, num_occupation = id_to_userinfo[int(id)]
-                out.write(" "+str(offset+num_occupation)+":1")
+                _, _, num_occupation = id_to_userinfo[id]
+                out.write(" "+get_field(field)+str(offset+num_occupation)+":1")
                 offset += len(occupation_to_number)
+                field += 1
             out.write("\n")
+            
+def convert_to_libfm( infile_train, infile_test, outfile_train, outfile_test ):
+    # create empty lists
+    train_lines = []
 
+    # read infile_train
+    for line in open(infile_train):
+        train_lines += [line]
+        
+    # create database from train_lines
+    train_db = { id:set() for (id,_) in id_to_userinfo.items() }
+    for line in train_lines:
+        line = line.rstrip("\n").split("\t")
+        id, movie, rate, timestamp = line
+        train_db[id].add((movie,rate,timestamp))
+
+    emit_libfm( infile_train, outfile_train, train_db )
+    emit_libfm( infile_test,  outfile_test,  train_db )
+    
 # create libfm dataset
 for u in name:
-    convert_to_libfm( os.path.join(dataset,u+ext_train), os.path.join(output,args.prefix_train+u+".txt"))
-    convert_to_libfm( os.path.join(dataset,u+ext_test ), os.path.join(output,args.prefix_test +u+".txt"))
+    convert_to_libfm( os.path.join(dataset,u+ext_train),
+                      os.path.join(dataset,u+ext_test),
+                      os.path.join(output,args.prefix_train+u+".txt"),
+                      os.path.join(output,args.prefix_test +u+".txt"))
